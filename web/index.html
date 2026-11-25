@@ -3,69 +3,64 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Shipyard</title>
+<title>agentviz shipyard</title>
+<link rel="stylesheet" href="agentviz-hud.css">
 <style>
-  :root { color-scheme: dark; --bg: #0b1218; --fg: #e8eef2; --panel: rgba(14, 22, 30, 0.9); --line: rgba(255,255,255,0.12);
-    --red: #ff3b2f; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
-    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  /* The shipyard's theme for the kit's HUD (agentviz-hud.css): harbour night blues,
+     foghorn red for "needs you", amber for a stall. Plus its own labels and legend. */
+  :root { color-scheme: dark; --bg: #0b1218;
+    --av-fg: #e8eef2; --av-muted: #9fb0bd; --av-panel: rgba(14, 22, 30, 0.9); --av-line: rgba(255, 255, 255, 0.12);
+    --av-wait: #ff3b2f; --av-wait-fg: #fff; --av-note: #c9d8e4; --av-stall: #ffb02e; --av-busy: #4fd08a; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--av-fg); font: var(--av-font); }
   #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
   #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
-  .label { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font-size: 12px;
-    padding: 2px 8px; border-radius: 999px; background: var(--panel); border-left: 4px solid var(--c, #889); }
-  .label.place { font-size: 13px; font-weight: 600; letter-spacing: .02em; border-left-color: #c9a227; border-radius: 4px; }
-  .label.lead { font-weight: 600; }
-  .label.lane { font-size: 10.5px; padding: 1px 6px; opacity: .9; }
-  .label.off { opacity: .55; }
-  .label.alert { background: var(--red); color: #fff; border-left-color: #fff; animation: blink 1s steps(2) infinite; }
-  @keyframes blink { 50% { background: #8a120c; } }
-  #needs { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
-    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); }
-  #needs button { font: inherit; font-weight: 700; color: #fff; background: var(--red); border: 2px solid #fff;
-    border-radius: 999px; padding: 6px 14px 6px 10px; cursor: pointer; box-shadow: 0 0 0 0 rgba(255,59,47,.7);
-    animation: pulse 1.2s infinite; }
-  #needs .flag { margin-right: 6px; }
-  @keyframes pulse { 70% { box-shadow: 0 0 0 14px rgba(255,59,47,0); } 100% { box-shadow: 0 0 0 0 rgba(255,59,47,0); } }
-  #conn { position: fixed; right: 12px; top: 12px; background: #7a1d16; padding: 4px 10px; border-radius: 6px; }
-  #sheet { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom));
-    width: 320px; max-height: 60vh; overflow: auto; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 14px 14px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
-  #sheet .who { display: flex; gap: 10px; align-items: center; padding-right: 26px; }
-  #sheet .who b { font-size: 16px; display: block; }
-  #sheet small { opacity: .7; }
-  .hat { width: 26px; height: 16px; border-radius: 13px 13px 3px 3px; background: var(--c); flex: none; }
-  #close { position: absolute; right: 8px; top: 6px; background: none; border: 0; color: var(--fg); font-size: 24px;
-    cursor: pointer; width: 36px; height: 36px; }
-  #sheet { position: fixed; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
-  .chip { padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.08); font-size: 12.5px; }
-  .chip i { font-style: normal; }
-  .st-busy, .st-active { background: #1f5e33; } .st-waiting { background: var(--red); font-weight: 700; }
-  .st-offline { background: #2c3a30; } .st-resting { background: #3b3a2a; }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0 0 8px; font-size: 13px; }
-  dt { opacity: .6; } dd { margin: 0; overflow-wrap: anywhere; }
-  .crew { display: flex; flex-wrap: wrap; gap: 6px; }
-  .crewman { font: inherit; font-size: 12px; color: var(--fg); background: rgba(255,255,255,.06); border: 0;
-    border-left: 4px solid var(--c); border-radius: 6px; padding: 4px 8px; cursor: pointer; min-height: 30px; }
-  .crewman i { font-style: normal; margin-right: 5px; }
-  .crewman.off { opacity: .55; }
-  @media (max-width: 700px) {
-    #sheet { left: 0; right: 0; bottom: 0; width: auto; border-radius: 16px 16px 0 0; max-height: 46vh;
-      padding-bottom: max(14px, env(safe-area-inset-bottom)); }
-    #sheet::before { content: ""; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--line);
-      margin: -6px auto 8px; }
-    .label.lane { display: none; }
-  }
+  .av-s-waiting { background: var(--av-wait); }
+  .av-label { border-width: 1px 1px 1px 4px; }
+  .av-label.place { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; border-radius: 4px; border-left-color: #c9a227; }
+  .av-label.lead { font-weight: 600; }
+  .av-label.sub { font-size: 10.5px; padding: 1px 6px; opacity: 0.92; }
+  .av-label.resting, .av-label.offline { opacity: 0.6; }
+  .av-label.waiting { background: var(--av-wait); border-color: #fff; color: #fff; font-weight: 700;
+    animation: yard-blink 1s steps(2) infinite; }
+  .av-label.waiting .av-dot { background: #fff; }
+  @keyframes yard-blink { 50% { background: #8a120c; } }
+  .av-legend table { border-collapse: collapse; width: 100%; }
+  .av-legend td { padding: 3px 4px; vertical-align: top; }
+  .av-legend td:first-child { font-size: 18px; width: 28px; text-align: center; }
+  @media (max-width: 700px) { .av-label.sub { display: none; } }
 </style>
 </head>
 <body>
 <canvas id="view" tabindex="0" role="img" aria-label="Claude Code sessions as a shipyard: dry docks, foremen, welders"></canvas>
 <div id="labels" aria-hidden="true"></div>
-<div id="needs" hidden aria-live="assertive"></div>
-<div id="conn" hidden>feed unreachable</div>
-<section id="sheet" hidden aria-live="polite"></section>
+<aside id="legend" hidden aria-label="What you are looking at">
+  <table>
+    <tr><td>🚢</td><td>Dry dock with a hull = a place (repo); the hull is longer and plated higher the more tool calls the place has seen</td></tr>
+    <tr><td>🦺</td><td>Foreman in a coloured vest beside a crane = a session</td></tr>
+    <tr><td>👷</td><td>Welder on the scaffolding in the same hat colour = one of its subagents; label = its lane</td></tr>
+    <tr><td>✷</td><td><b>edit</b>: welding sparks, blue-white flashes</td></tr>
+    <tr><td>⇅</td><td><b>run</b>: crane trolley carrying a plate (welder: chain hoist)</td></tr>
+    <tr><td>▤</td><td><b>read</b>: holding a blueprint</td></tr>
+    <tr><td>☀</td><td><b>web</b>: signal lamp blinking to the ship offshore, which answers</td></tr>
+    <tr><td>☛</td><td><b>delegate</b>: arms waving, lines running to each welder</td></tr>
+    <tr><td>…</td><td><b>think</b>: pacing, thought dots circling</td></tr>
+    <tr><td>⚒</td><td><b>other</b>: tapping a hammer</td></tr>
+    <tr><td>💥</td><td>White flash and a ring of sparks at the work point: a new tool call</td></tr>
+    <tr><td>🚨</td><td><b>waiting</b>: foghorn lamp flashing red, flag up, red beam, ripples: needs you. Over the foreman a red padlock (a permission prompt) or a red "?" (a question)</td></tr>
+    <tr><td>💡</td><td><b>idle</b>: floodlights low, crane still</td></tr>
+    <tr><td>⛺</td><td><b>offline</b>: crane cab and quay spot tarped; the whole dock when every session there is gone</td></tr>
+    <tr><td>🌫</td><td><b>stalled</b>: grey smoke and a blinking amber lamp (from the crane cab, or a welder's bay)</td></tr>
+    <tr><td>🪑</td><td>Resting subagent: welder sitting on the scaffold edge</td></tr>
+  </table>
+</aside>
 <script src="strata-loader.js"></script>
 <script src="strata-kit.js"></script>
-<script src="shipyard.js"></script>
+<script src="agentviz-feed.js"></script>
+<script src="agentviz-screen.js"></script>
+<script src="agentviz-hud.js"></script>
+<script src="agentviz-wire.js"></script>
+<script src="shipyard-model.js"></script>
+<script src="shipyard-frame.js"></script>
+<script src="page.js"></script>
 </body>
 </html>
