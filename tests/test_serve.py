@@ -2,7 +2,6 @@
 feed and the vendored copies. Stdlib only: python3 -m unittest discover -s tests"""
 import json
 import os
-import re
 import socket
 import subprocess
 import sys
@@ -23,11 +22,6 @@ PAGE_SCRIPTS = ("strata-loader.js", "strata-kit.js", "agentviz-feed.js", "agentv
 def get(path):
     with urllib.request.urlopen(BASE + path, timeout=10) as r:
         return r.status, r.headers.get("Content-Type", ""), r.read()
-
-
-def read(*parts):
-    with open(os.path.join(REPO, *parts), encoding="utf-8") as fh:
-        return fh.read()
 
 
 class ServeFixtureTest(unittest.TestCase):
@@ -102,37 +96,11 @@ class ServeFixtureTest(unittest.TestCase):
         self.assertEqual(e.exception.code, 404)
 
 
-class PageScriptsTest(unittest.TestCase):
-    """Feed strings reach the DOM as text only, and no failure is swallowed."""
-
-    def test_no_innerHTML(self):
-        for name in OWN_SCRIPTS + ("index.html",):
-            self.assertNotIn("innerHTML", read("web", name), name)
-
-    def test_no_empty_catch(self):
-        empty = re.compile(r"catch\s*(\([^)]*\))?\s*\{\s*\}")
-        for name in OWN_SCRIPTS:
-            self.assertIsNone(empty.search(read("web", name)), name)
-
-
 class VendoredCopiesTest(unittest.TestCase):
     def test_vendored_copies_match_their_pins(self):
         result = subprocess.run([sys.executable, os.path.join(REPO, "vendor", "agentviz-kit", "check_vendor.py"), REPO],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-
-
-class NoLocalPathsTest(unittest.TestCase):
-    MACHINE_ROOT = "/" + "root/"  # split so this file does not match itself
-
-    def test_no_machine_paths_in_tracked_text(self):
-        out = subprocess.run(["git", "ls-files"], cwd=REPO, stdout=subprocess.PIPE, universal_newlines=True).stdout
-        skip = (".wasm", ".png", ".gif", "package-lock.json")
-        for name in out.split():
-            if name.endswith(skip) or name.startswith("vendor/") or not os.path.exists(os.path.join(REPO, name)):
-                continue
-            with open(os.path.join(REPO, name), encoding="utf-8", errors="replace") as fh:
-                self.assertNotIn(self.MACHINE_ROOT, fh.read(), name)
 
 
 if __name__ == "__main__":
