@@ -44,7 +44,7 @@ async function shot(page, name, t, cam, sel) {
   if (!want(name)) return;
   await frame(page, t, cam, sel);
   const t0 = Date.now();
-  await page.screenshot({path: path.join(out, name + ".png"), timeout: 180000, animations: "disabled"});
+  await page.screenshot({path: path.join(out, name + ".png"), timeout: 600000, animations: "disabled"});
   console.log(`  (${Date.now() - t0} ms)`);
   console.log("saved", name);
 }
@@ -57,6 +57,8 @@ async function shot(page, name, t, cam, sel) {
     let {ctx, page} = await open(browser, {width: 1600, height: 900}, 1);
     // Let new figures ease into place.
     for (let i = 0; i < 30; i++) await page.evaluate((t) => window.__shipyard.kit.drive(t), i * 0.2);
+    // The first screenshot of a big SwiftShader canvas is slow (the compositor warms up): take it unsaved.
+    await page.screenshot({timeout: 900000});
     await shot(page, "hero", 6.3, WIDE);
     await shot(page, "angle-sea", 6.3, {yaw: 1.9, pitch: 0.42, dist: 90, tx: 0, ty: 0, tz: 4});
     await shot(page, "angle-top", 6.3, {yaw: -1.5707, pitch: 1.25, dist: 105, tx: 0, ty: 0, tz: 6});
@@ -64,12 +66,17 @@ async function shot(page, name, t, cam, sel) {
     await shot(page, "closeup-waiting", 6.2, {yaw: 1.0, pitch: 0.3, dist: 34, tx: -30, ty: 2, tz: 3});
     await shot(page, "closeup-idle-offline", 6.3, {yaw: -1.0, pitch: 0.5, dist: 30, tx: 45, ty: 0, tz: -3});
     await shot(page, "closeup-stalled", 7.0, {yaw: -1.1, pitch: 0.4, dist: 36, tx: -50, ty: 2, tz: -3});
-    await shot(page, "closeup-resting", 6.3, {yaw: -2.2, pitch: 0.45, dist: 22, tx: 24, ty: -1, tz: -2});
+    if (want("closeup-resting")) {
+      // Close on Wren's resting "tests + docs" welder, from the hull's open side, with it selected.
+      const w = await page.evaluate(() => window.__shipyard.figs().find((f) => f.id === "demo-lead-a/demo-a5").target);
+      await shot(page, "closeup-resting", 6.3, {yaw: 3.0, pitch: 0.5, dist: 13, tx: w.x, ty: w.y + 0.8, tz: w.z},
+        "demo-lead-a/demo-a5");
+    }
     await shot(page, "panel-desktop", 6.3, {yaw: -0.9, pitch: 0.5, dist: 34, tx: -2, ty: 0, tz: -2}, "demo-lead-b");
     if (want("motion")) {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shipyard-gif-"));
       await page.setViewportSize({width: 960, height: 540});
-      const cam = {yaw: -0.8, pitch: 0.48, dist: 34, tx: 18, ty: 0, tz: -1};
+      const cam = {yaw: -0.8, pitch: 0.45, dist: 26, tx: 16, ty: 0, tz: -2};
       await frame(page, 10, cam);
       const n = 60;
       for (let i = 0; i < n; i++) {

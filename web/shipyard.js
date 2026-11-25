@@ -247,6 +247,8 @@
     } else if (f.kind === 1) {
       html += `<div class="crew"><button class="crewman" data-id="${esc(f.lead.id)}" style="--c:${f.col.css}"><i>↑</i>${esc(f.lead.data.name)}</button></div>`;
     }
+    if (sheet._html === html) return;  // a poll that changed nothing keeps the buttons (and a tap in flight)
+    sheet._html = html;
     sheet.innerHTML = html;
     $("close").onclick = () => select(null);
     for (const b of sheet.querySelectorAll(".crewman")) b.onclick = () => select(figById.get(b.dataset.id), true);
@@ -256,6 +258,9 @@
     const el = $("needs");
     const waiting = (doc.sessions || []).filter((s) => s.state === "waiting");
     el.hidden = !waiting.length;
+    const key = waiting.map((s) => s.id + ":" + s.name).join("|");
+    if (el._key === key) return;
+    el._key = key;
     el.innerHTML = waiting.map((s) => `<button data-id="${esc(s.id)}"><span class="flag">⚑</span>${esc(s.name)}</button>`).join("");
     for (const b of el.querySelectorAll("button")) b.onclick = () => select(figById.get(b.dataset.id), true);
   }

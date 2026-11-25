@@ -63,9 +63,10 @@ so its crane cab and spot on the quay are tarped.*
 *`stalled`: Scout has been busy without writing anything for over five
 minutes, so the `engine` hull smokes. Anvil, beside it, is welding.*
 
-![A welder sitting on the scaffold edge at the site-one dock](docs/media/closeup-resting.png)
+![Wren's resting welder sitting on its scaffold bay beside the site-one hull, with its panel open](docs/media/closeup-resting.png)
 
-*A resting subagent: Wren's `tests + docs` welder sits on the scaffold edge.*
+*A resting subagent, selected: Wren's `tests + docs` welder sits down on its
+scaffold bay while the other lanes weld and read. Wren waves her crews on.*
 
 ## Other angles
 
