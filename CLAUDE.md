@@ -20,5 +20,3 @@ kit). Part of the agentviz family: https://github.com/dmccoystephenson/agentviz
   after `npm ci` and `npx playwright install chromium`: `npm run smoke`, `npm run screenshots`
   (Pillow from requirements-dev.txt for the GIF), on port 9125 (`SHIPYARD_TEST_PORT`).
 - Screenshots come from the FIXTURE feed only, never live sessions.
-- While the repo is private, hosted Actions are billing-blocked: run localci on PRs
-  (drop this line once it is public).
