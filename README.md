@@ -38,13 +38,19 @@ Query options: `?fixture=1` (demo feed against a live server), `?view=sea` or
 `?view=top` (another starting angle), `?fps=1` (frame stats),
 `?quality=0|1|2`.
 
-Tap or click a foreman or a welder for its card (a bottom sheet on a phone;
-swipe it down or tap the cross to close): name, state, action, what it is
-doing, branch, place, tool calls, the dock's hull and its crew; tap a crew
-chip to fly to that welder, where its card shows its own branch. The red
+Each foreman's label carries the icon of what he is doing (edit, run, read,
+web, delegate, think); a stalled foreman's or welder's label turns amber and
+stays up even from afar. Tap or click a foreman or a welder for its card (a
+bottom sheet on a phone, with the camera sliding so what you tapped stays in
+view above it; swipe it down or tap the cross to close): name, state,
+action, what it is doing, branch, place, tool calls, the dock's hull and its
+crew; tap a crew chip to fly to that welder, where its card shows its own
+branch. The red
 **need you** chip names who is waiting and why (a question, or a permission
 prompt), flies to that foreman and cycles through them; the house button
-shows the whole yard again; **?** opens the legend. If the feed stops
+shows the whole yard again (on a phone held upright, looking along the
+harbour so every dock fits); **?** opens the legend. Labels never sit under
+the top bar, the card or the legend. If the feed stops
 answering, a banner says so and the last snapshot stays; with no sessions at
 all, a hint says how to start. Drag to orbit, right-drag or two fingers to
 pan, wheel or pinch to zoom.
@@ -55,7 +61,7 @@ pan, wheel or pinch to zoom.
 |---|---|---|
 | A dry dock with a hull on keel blocks | a **place** (working-directory basename) | [hero](docs/media/hero.png) |
 | How long the hull is and how high it is plated (bare ribs above) | how many tool calls the place has seen (its `toolCount`) | [closeup-lead](docs/media/closeup-lead.png) |
-| Foreman in a white shirt and a coloured vest, beside a crane | a **session**; its colour edges its label | [closeup-lead](docs/media/closeup-lead.png) |
+| Foreman in a white shirt and a coloured vest, beside a crane | a **session**; its colour edges its label, whose icon is its action | [closeup-lead](docs/media/closeup-lead.png) |
 | Welder on a scaffold bay in the same hat colour, toe-board in that colour | a **subagent** of that foreman; label = its lane | [closeup-lead](docs/media/closeup-lead.png) |
 | Welding sparks and a flickering blue-white light | action `edit` | [motion.gif](docs/media/motion.gif) |
 | Crane trolley carrying a steel plate (a welder: a chain hoist lifting one) | action `run` | [closeup-lead](docs/media/closeup-lead.png) |
@@ -69,7 +75,7 @@ pan, wheel or pinch to zoom.
 | A red padlock / a red "?" over the waiting foreman; the label says "needs permission" / "has a question" | why it waits (`waitingReason`) | [closeup-waiting](docs/media/closeup-waiting.png), [closeup-question](docs/media/closeup-question.png) |
 | Floodlights low, crane still, foreman standing | state `idle` | [closeup-idle-offline](docs/media/closeup-idle-offline.png) |
 | Tarp over the crane cab and a tarped heap on the quay; the whole dock tarped when every session there is gone | state `offline` | [closeup-idle-offline](docs/media/closeup-idle-offline.png) |
-| Grey smoke and a blinking amber lamp: from the crane cab (a session), or from a welder's bay (a subagent) | `stalled`: a session busy with nothing written for 5 minutes, or a subagent quiet that long without finishing | [closeup-stalled](docs/media/closeup-stalled.png), [closeup-stalled-subagent](docs/media/closeup-stalled-subagent.png) |
+| Grey smoke and a blinking amber lamp: from the crane cab (a session), or from a welder's bay (a subagent); an amber label that stays up | `stalled`: a session busy with nothing written for 5 minutes, or a subagent quiet that long without finishing | [closeup-stalled](docs/media/closeup-stalled.png), [closeup-stalled-subagent](docs/media/closeup-stalled-subagent.png) |
 | Welder sitting on the scaffold edge, legs dangling | a **resting** subagent (quiet for 2 minutes) | [closeup-resting](docs/media/closeup-resting.png) |
 | A white ring at the feet (fainter round the crew) | the selected agent (and the selected foreman's welders) | [panel-desktop](docs/media/panel-desktop.png) |
 
@@ -124,9 +130,12 @@ a second).*
 
 *Desktop: Otto selected; his welders are ringed too.*
 
-<img src="docs/media/phone.png" width="300" alt="Phone portrait with the bottom sheet open on Wren">
+<img src="docs/media/phone-yard.png" width="300" alt="Phone portrait: the camera looks along the harbour so all seven docks fit top to bottom, the top bar on one row"> <img src="docs/media/phone.png" width="300" alt="Phone portrait after a tap on Wren: the bottom sheet open on her, Wren slid into view above it">
 
-*Phone portrait (390 × 844, DPR 3): the card as a bottom sheet, open on Wren.*
+*Phone portrait (390 × 844, DPR 3). Left: held upright, the yard is seen
+along the harbour so every dock fits, and the top bar keeps to one row.
+Right: a tap on Wren opens her card as a bottom sheet and slides her into
+view above it.*
 
 ![The yard from the sea, looking inland at the dock gates](docs/media/angle-sea.png)
 
@@ -148,7 +157,7 @@ python3 -m unittest discover -s tests       # serves the fixture; page, assets, 
 npm ci && npx playwright install chromium   # Playwright 1.61.1, for the browser tests
 pip install -r requirements-dev.txt         # Pillow, for the GIF
 npm run smoke                               # headless Chromium on the demo feed; saves docs/media/screenshot.png
-npm run screenshots                         # every image above (or some: npm run screenshots -- hero phone motion)
+npm run screenshots                         # every image above (or some: npm run screenshots -- hero phone phone-yard motion)
 EMSDK=/path/to/emsdk vendor/agentviz-kit/scene/build-scene.sh scene/kit.conf   # rebuild web/shipyard-engine.*
 ```
 

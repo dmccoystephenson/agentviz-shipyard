@@ -72,11 +72,15 @@ async function desktopStills(browser, server) {
   await ctx.close();
 }
 
+// The phone: the whole yard in portrait (the camera looks along it), then a
+// real tap on Wren, which opens the bottom sheet and slides her above it.
 async function phone(browser, server) {
-  if (!want("phone")) return;
+  if (!want("phone") && !want("phone-yard")) return;
   const {ctx, page, errors} = await openPage(browser, server, PHONE);
-  await shoot(page, "phone", "window.__page.select(window.__shots.session('Wren').id); " +
-    "window.__shots.foreman('Wren', {yaw: -0.85, pitch: 0.55, dist: 26, ty: -4})");
+  await shoot(page, "phone-yard", "window.__page.fit(true)");
+  await shoot(page, "phone", "window.__page.fit(true); window.__shots.draw(); " +
+    "const p = window.__yard.posOf(window.__shots.session('Wren')), q = window.__page.kit.project(p.x, 1.2, p.z); " +
+    "window.__page.kit.tapAt(q.x, q.y)");
   h.assertNoErrors(errors);
   await ctx.close();
 }

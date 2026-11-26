@@ -27,7 +27,18 @@
   .av-legend table { border-collapse: collapse; width: 100%; }
   .av-legend td { padding: 3px 4px; vertical-align: top; }
   .av-legend td:first-child { font-size: 18px; width: 28px; text-align: center; }
-  @media (max-width: 700px) { .av-label.sub { display: none; } }
+  .av-label.stalled { border-color: var(--av-stall); }
+  .av-label.lead .av-ic { width: 13px; height: 13px; }
+  /* On a narrow screen lane labels show only for the selected crew, or when stalled. */
+  @media (max-width: 700px) { .av-label.sub:not(.stalled):not(.crew) { display: none; } }
+  /* A phone's top bar keeps to one row: the title and the idle and away counts
+     give way (the legend and the cards still say all of it). */
+  @media (max-width: 640px) {
+    .av-bar .av-title, .av-bar .av-chip[title="idle"], .av-bar .av-chip[title="away"] { display: none; }
+    .av-bar { flex-wrap: nowrap; }
+    .av-bar .av-chip { white-space: nowrap; flex: none; }
+    .av-bar .av-badge { font-size: 10.5px; padding: 2px 7px; min-height: 24px; }
+  }
 </style>
 </head>
 <body>
@@ -36,7 +47,7 @@
 <aside id="legend" hidden aria-label="What you are looking at">
   <table>
     <tr><td>🚢</td><td>Dry dock with a hull = a place (repo); the hull is longer and plated higher the more tool calls the place has seen</td></tr>
-    <tr><td>🦺</td><td>Foreman in a coloured vest beside a crane = a session</td></tr>
+    <tr><td>🦺</td><td>Foreman in a coloured vest beside a crane = a session; the icon on his label is what he is doing</td></tr>
     <tr><td>👷</td><td>Welder on the scaffolding in the same hat colour = one of its subagents; label = its lane</td></tr>
     <tr><td>✷</td><td><b>edit</b>: welding sparks, blue-white flashes</td></tr>
     <tr><td>⇅</td><td><b>run</b>: crane trolley carrying a plate (welder: chain hoist)</td></tr>
@@ -49,7 +60,7 @@
     <tr><td>🚨</td><td><b>waiting</b>: foghorn lamp flashing red, flag up, red beam, ripples: needs you. Over the foreman a red padlock (a permission prompt) or a red "?" (a question)</td></tr>
     <tr><td>💡</td><td><b>idle</b>: floodlights low, crane still</td></tr>
     <tr><td>⛺</td><td><b>offline</b>: crane cab and quay spot tarped; the whole dock when every session there is gone</td></tr>
-    <tr><td>🌫</td><td><b>stalled</b>: grey smoke and a blinking amber lamp (from the crane cab, or a welder's bay)</td></tr>
+    <tr><td>🌫</td><td><b>stalled</b>: grey smoke and a blinking amber lamp (from the crane cab, or a welder's bay), and an amber label</td></tr>
     <tr><td>🪑</td><td>Resting subagent: welder sitting on the scaffold edge</td></tr>
   </table>
 </aside>
