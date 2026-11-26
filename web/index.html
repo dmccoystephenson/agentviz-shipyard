@@ -31,14 +31,9 @@
   .av-label.lead .av-ic { width: 13px; height: 13px; }
   /* On a narrow screen lane labels show only for the selected crew, or when stalled. */
   @media (max-width: 700px) { .av-label.sub:not(.stalled):not(.crew) { display: none; } }
-  /* A phone's top bar keeps to one row: the title and the idle and away counts
-     give way (the legend and the cards still say all of it). */
-  @media (max-width: 640px) {
-    .av-bar .av-title, .av-bar .av-chip[title="idle"], .av-bar .av-chip[title="away"] { display: none; }
-    .av-bar { flex-wrap: nowrap; }
-    .av-bar .av-chip { white-space: nowrap; flex: none; }
-    .av-bar .av-badge { font-size: 10.5px; padding: 2px 7px; min-height: 24px; }
-  }
+  /* A phone's top bar keeps to one row (oneRow in page.js): the idle and away
+     counts give way (the legend and the cards still say all of it). */
+  @media (max-width: 640px) { .av-one-row .av-count-idle, .av-one-row .av-count-offline { display: none; } }
 </style>
 </head>
 <body>
