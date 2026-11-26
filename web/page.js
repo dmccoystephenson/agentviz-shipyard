@@ -6,6 +6,8 @@
   const REASON = {question: "has a question", permission: "needs permission"};
   const VIEW = {yaw: -1.3, pitch: 0.5};  // from the land side, the harbour behind
   const VIEWS = {sea: {yaw: 1.9, pitch: 0.42}, top: {yaw: -Math.PI / 2, pitch: 1.25}};
+  // A portrait phone looks along the yard instead, so every dock fits top to bottom.
+  const PORTRAIT = {yaw: VIEW.yaw + 1.0, pitch: 0.8};
   const FOV_HALF_TAN = Math.tan(25 * Math.PI / 180);
   const WELDER_LABELS_WITHIN = 60;
   const canvas = document.getElementById("view");
@@ -24,7 +26,10 @@
   function fitView() {
     const aspect = Math.max(0.3, canvas.clientWidth / Math.max(1, canvas.clientHeight));
     const width = yard.world.maxX - yard.world.minX - 20;
-    const dist = Math.min(Math.max(48, width / 2 / (FOV_HALF_TAN * aspect) * 1.12), aspect < 0.8 ? 150 : 200);
+    if (aspect < 0.8) {  // the yard's length now runs up the screen
+      return Object.assign({tx: 0, ty: 0, tz: 2, dist: Math.min(Math.max(48, width / 2 / FOV_HALF_TAN * 0.86), 200)}, PORTRAIT);
+    }
+    const dist = Math.min(Math.max(48, width / 2 / (FOV_HALF_TAN * aspect) * 1.12), 200);
     return Object.assign({tx: width * 0.045, ty: 0, tz: 12, dist}, VIEW);
   }
   function flyTo(to, instant) {
@@ -38,11 +43,59 @@
     for (const key of Object.keys(camAnim.to)) cam[key] = AgentvizFeed.lerp(camAnim.from[key], camAnim.to[key], e);
     if (k >= 1) camAnim = null;
   }
-  function focusOn(e) {
+  // What the HUD covers, in canvas pixels: the top bar's foot and the open
+  // panel (a bottom sheet on a phone, a card on a desktop).
+  function hudRects() {
+    const out = {barBottom: 0, panel: null, legend: null};
+    const bar = document.querySelector(".av-bar"), panel = hud && hud.panel, legend = document.getElementById("legend");
+    if (bar) out.barBottom = bar.getBoundingClientRect().bottom;
+    // The sheet slides in, so measure where it comes to rest, not where it is mid-slide.
+    if (panel && !panel.hidden) {
+      const y1 = window.innerHeight - (parseFloat(getComputedStyle(panel).bottom) || 0);
+      out.panel = {x0: panel.offsetLeft, x1: panel.offsetLeft + panel.offsetWidth, y0: y1 - panel.offsetHeight, y1};
+      out.sheet = panel.offsetWidth >= window.innerWidth - 2;
+    }
+    if (legend && !legend.hidden) { const r = legend.getBoundingClientRect(); out.legend = {x0: r.left, x1: r.right, y0: r.top, y1: r.bottom}; }
+    return out;
+  }
+
+  // A camera aimed so the subject at world point p lands on screen point (sx, sy):
+  // the target moves off p along the camera's own right and up vectors.
+  function aimedAt(p, view, sx, sy) {
+    const W = Math.max(1, canvas.clientWidth), H = Math.max(1, canvas.clientHeight);
+    const span = view.dist * FOV_HALF_TAN, nx = (2 * sx / W - 1) * span * (W / H), ny = (1 - 2 * sy / H) * span;
+    const cy = Math.cos(view.yaw), syw = Math.sin(view.yaw), sp = Math.sin(view.pitch), cp = Math.cos(view.pitch);
+    const right = [-syw, 0, cy], up = [-sp * cy, cp, -sp * syw];
+    return Object.assign({}, view, {tx: p.x - nx * right[0] - ny * up[0], ty: p.y - ny * up[1], tz: p.z - nx * right[2] - ny * up[2]});
+  }
+
+  // The clear band: between the top bar and the open sheet (or the whole view beside a desktop card).
+  function clearSpot() {
+    const r = hudRects(), W = canvas.clientWidth, H = canvas.clientHeight;
+    const bottom = r.panel && r.sheet ? r.panel.y0 : H;
+    return {x: W / 2, y: (r.barBottom + bottom) / 2, r};
+  }
+
+  function subjectPoint(e) {
     const p = yard.posOf(e);
-    // On a phone the bottom sheet covers the lower part: aim below the subject so it sits above the sheet.
-    const sheetShift = window.innerWidth <= 640 ? 6 : 0;
-    flyTo({tx: p.x + (e.lead ? 0 : 3), ty: 0.5 - sheetShift, tz: p.z, dist: 28});
+    return e.lead ? {x: e.cur.x, y: e.cur.y + 1.0, z: e.cur.z} : {x: p.x, y: 1.2, z: p.z};
+  }
+
+  function focusOn(e) {
+    const spot = clearSpot();
+    flyTo(aimedAt(subjectPoint(e), Object.assign({}, cam, {dist: 28}), spot.x, spot.y));
+  }
+
+  // A tapped agent must stay in sight. On a phone the camera slides (same
+  // angle and distance) until it sits in the clear band above the sheet; on
+  // a desktop only when the card or the top bar covers it.
+  function keepInSight(e) {
+    const p = subjectPoint(e), q = kit.project(p.x, p.y, p.z);
+    if (!q) return;
+    const spot = clearSpot(), r = spot.r, pad = 40;
+    const under = (b) => b && q.x > b.x0 - pad && q.x < b.x1 + pad && q.y > b.y0 - pad;
+    if (!r.sheet && !under(r.panel) && q.y > r.barBottom + pad) return;
+    flyTo(aimedAt(p, Object.assign({}, cam), r.sheet ? spot.x : q.x, r.sheet ? spot.y : Math.min(q.y, (r.panel ? r.panel.y0 : canvas.clientHeight) - 2 * pad)));
   }
 
   /* ------------------------------------------------------------ labels */
@@ -54,33 +107,44 @@
     return {el, q: kit.project(d.cur.x, 1.0, -Yard.BASIN_HL - 0.8), rank: d.waiting ? 0 : 1};
   }
 
+  // A foreman's label says what he is doing (the action's icon), and says so when he is stalled.
   function foremanLabel(e) {
     const s = e.data, waiting = s.state === "waiting";
-    const text = (s.name || s.id.slice(0, 6)) + (waiting ? " " + (REASON[s.waitingReason] || "needs you") : "");
-    const cls = "lead" + (waiting ? " waiting" : s.state === "offline" ? " offline" : "");
-    const el = labels.set("s:" + e.id, {cls, state: s.stalled ? "stalled" : s.state, text});
-    edge(el, waiting ? "" : e.colour.css);
+    const text = (s.name || s.id.slice(0, 6)) + (waiting ? " " + (REASON[s.waitingReason] || "needs you") : s.stalled ? " · stalled" : "");
+    const cls = "lead" + (waiting ? " waiting" : s.stalled ? " stalled" : s.state === "offline" ? " offline" : "");
+    const action = s.state === "busy" && s.action && s.action !== "none" ? s.action : null;
+    const el = labels.set("s:" + e.id, {cls, state: s.stalled ? "stalled" : s.state, action, text});
+    edge(el, waiting ? "" : s.stalled ? "var(--av-stall)" : e.colour.css);
     const p = yard.posOf(e);
-    return {el, q: kit.project(p.x, waiting ? 5.0 : 3.1, p.z), rank: waiting || e.id === selectedId ? 0 : 2};
+    return {el, q: kit.project(p.x, waiting ? 5.0 : 3.1, p.z), rank: waiting || e.id === selectedId ? 0 : s.stalled ? 1 : 2};
   }
 
-  // Lane labels show close up, or for the selected agent's crew.
+  // Lane labels show close up, or for the selected agent's crew; a stalled lane's always shows.
   function welderLabel(w) {
-    const sel = selected();
+    const sel = selected(), f = w.data;
     const crew = sel && (sel === w || sel === w.lead || sel.lead === w.lead);
-    if (!crew && cam.dist > WELDER_LABELS_WITHIN) return null;
-    const f = w.data, resting = f.state !== "active";
-    const el = labels.set("f:" + w.id, {cls: "sub" + (resting ? " resting" : ""), state: f.stalled ? "stalled" : null,
-      action: resting ? "none" : f.action, text: f.label || "subagent"});
-    edge(el, w.colour.css);
-    return {el, q: kit.project(w.cur.x, w.cur.y + 2.3, w.cur.z), rank: crew ? 1 : 4};
+    if (!crew && !f.stalled && cam.dist > WELDER_LABELS_WITHIN) return null;
+    const resting = f.state !== "active";
+    const el = labels.set("f:" + w.id, {cls: "sub" + (crew ? " crew" : "") + (f.stalled ? " stalled" : resting ? " resting" : ""),
+      state: f.stalled ? "stalled" : null, action: resting ? "none" : f.action, text: f.label || "subagent"});
+    edge(el, f.stalled ? "var(--av-stall)" : w.colour.css);
+    return {el, q: kit.project(w.cur.x, w.cur.y + 2.3, w.cur.z), rank: crew ? 1 : f.stalled ? 2 : 4};
   }
 
-  // Labels never slide under the HUD's top bar.
-  function belowBar(items) {
-    const bar = document.querySelector(".av-bar");
-    const top = bar ? bar.getBoundingClientRect().bottom + 22 : 0;
-    for (const it of items) if (it.q && it.q.y < top) it.q = Object.assign({}, it.q, {y: top});
+  // Labels never sit under the HUD. One whose anchor is under the top bar is
+  // dropped (a waiting one is pinned just below it instead, so it still
+  // shows); one under the open panel or the legend is dropped. Near the bar a
+  // label may not stack upwards (placeLabels' tries) far enough to reach it.
+  const LABEL_H = 22, TRIES = (rank) => (rank <= 0 ? 6 : rank === 1 ? 2 : 1);
+  function keepClear(items) {
+    const r = hudRects(), top = r.barBottom + LABEL_H;
+    const inside = (b, q) => b && q.x > b.x0 - 8 && q.x < b.x1 + 8 && q.y > b.y0 && q.y - 20 < b.y1;
+    for (const it of items) {
+      if (!it.q) continue;
+      if (inside(r.panel, it.q) || inside(r.legend, it.q)) it.q = null;
+      else if (it.q.y < top) it.q = it.rank <= 0 && it.q.y > 0 ? Object.assign({}, it.q, {y: top}) : null;
+      if (it.q) it.tries = Math.min(TRIES(it.rank), Math.max(1, 1 + Math.floor((it.q.y - top) / LABEL_H)));
+    }
     return items;
   }
 
@@ -94,7 +158,7 @@
       if (item) items.push(item);
     }
     labels.end();
-    StrataKit.placeLabels(belowBar(items));
+    StrataKit.placeLabels(keepClear(items));
   }
 
   /* ------------------------------------------------------------ picking + selection */
@@ -116,6 +180,7 @@
     const e = selected();
     if (kit) kit.selected = e || null;
     if (e && (how === "waiting" || how === "list")) focusOn(e);
+    else if (e && how === "tap") keepInSight(e);
   }
 
   function panelRows({session, follower}) {

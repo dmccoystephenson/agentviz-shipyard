@@ -4,7 +4,9 @@
 // opens its panel; a stalled subagent is marked stalled (scene, label, panel);
 // a subagent's own branch shows in its panel; feed strings never become
 // HTML; the empty state and the unreachable banner show; the frame is not
-// flat; no console errors. Expected counts come from the feed document.
+// flat; no console errors; on a phone the top bar is one row and a tapped
+// foreman stays in sight above the bottom sheet. Expected counts come from
+// the feed document.
 //   npm ci && npx playwright install chromium && npm run smoke
 const path = require("path");
 const h = require("../vendor/agentviz-kit/tests/harness.cjs");
@@ -145,6 +147,47 @@ async function checkUnreachable(page) {
   check(banner && banner.includes("HTTP 503"), "no unreachable banner after failed polls");
 }
 
+// A phone (390 x 844, touch): the top bar keeps to one row, no label sits
+// under it, and a real tap on a foreman opens the bottom sheet with that
+// foreman slid into the clear band above it.
+async function checkPhone(browser, server) {
+  const {ctx, page, errors} = await h.open(browser, server.base + "/?fixture=1&quality=0",
+    {ready: READY, viewport: {width: 390, height: 844}, dpr: 2, mobile: true});
+  await h.stillAnimations(page);
+  await page.waitForFunction(() => window.__page.kit.stats().frames > 3, null, {timeout: 400000});
+  await page.evaluate(() => window.__page.stopPolling());
+  await page.waitForTimeout(800);
+  const bar = await page.evaluate(() => {
+    const b = document.querySelector(".av-bar").getBoundingClientRect();
+    const kids = [...document.querySelectorAll(".av-bar > .av-chip")].filter((c) => c.offsetParent);
+    const under = [...document.querySelectorAll("#labels .av-label")].filter((l) => l.offsetParent &&
+      !l.classList.contains("sk-label-off") && l.getBoundingClientRect().top < b.bottom).map((l) => l.textContent);
+    return {height: Math.round(b.height), right: Math.max(...kids.map((c) => c.getBoundingClientRect().right)), under};
+  });
+  console.log("phone bar:", JSON.stringify(bar));
+  check(bar.height <= 48 && bar.right <= 390, "the phone top bar wraps or runs off screen");
+  check(bar.under.length === 0, "labels sit under the phone top bar: " + bar.under.join(", "));
+  const name = await page.evaluate(() => window.__page.doc.sessions.find((s) => s.state === "busy").name);
+  const at = await page.evaluate((n) => {
+    const p = window.__yard.posOf(window.__yard.findSession(n)), q = window.__page.kit.project(p.x, 1.2, p.z);
+    return q && {x: q.x, y: q.y};
+  }, name);
+  check(at && at.y > 50 && at.y < 844, `${name} is off the phone screen`);
+  await page.touchscreen.tap(at.x, at.y);
+  await page.waitForTimeout(2000);
+  const after = await page.evaluate((n) => {
+    const panel = document.querySelector(".av-panel"), p = window.__yard.posOf(window.__yard.findSession(n));
+    const q = window.__page.kit.project(p.x, 1.2, p.z);
+    return {title: panel.hidden ? null : panel.querySelector("h2").textContent.trim(),
+      sheetTop: Math.round(window.innerHeight - panel.offsetHeight), y: q && Math.round(q.y)};
+  }, name);
+  console.log("phone tap:", name, JSON.stringify(after));
+  check(after.title === name, `the phone tap did not open ${name}'s sheet`);
+  check(after.y != null && after.y > bar.height && after.y < after.sheetTop - 20, `the sheet covers ${name} after the tap`);
+  h.assertNoErrors(errors);
+  await ctx.close();
+}
+
 h.run("smoke", {repo: REPO, port: PORT}, async ({server, browser}) => {
   const {page, errors} = await h.open(browser, server.base + "/?fixture=1&quality=1", {ready: READY});
   await h.stillAnimations(page);
@@ -163,5 +206,7 @@ h.run("smoke", {repo: REPO, port: PORT}, async ({server, browser}) => {
   const png = await h.shot(page, path.join(REPO, "docs/media/screenshot.png"));
   console.log("distinct colours:", await h.assertNotFlat(page, png));
   h.assertNoErrors(errors);
-  await checkUnreachable(page);  // last: the failed fetches log console errors of their own
+  await checkUnreachable(page);  // the failed fetches log console errors of their own
+  await page.context().close();
+  await checkPhone(browser, server);
 });
