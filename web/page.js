@@ -43,37 +43,11 @@
     for (const key of Object.keys(camAnim.to)) cam[key] = AgentvizFeed.lerp(camAnim.from[key], camAnim.to[key], e);
     if (k >= 1) camAnim = null;
   }
-  // What the HUD covers, in canvas pixels: the top bar's foot and the open
-  // panel (a bottom sheet on a phone, a card on a desktop).
-  function hudRects() {
-    const out = {barBottom: 0, panel: null, legend: null};
-    const bar = document.querySelector(".av-bar"), panel = hud && hud.panel, legend = document.getElementById("legend");
-    if (bar) out.barBottom = bar.getBoundingClientRect().bottom;
-    // The sheet slides in, so measure where it comes to rest, not where it is mid-slide.
-    if (panel && !panel.hidden) {
-      const y1 = window.innerHeight - (parseFloat(getComputedStyle(panel).bottom) || 0);
-      out.panel = {x0: panel.offsetLeft, x1: panel.offsetLeft + panel.offsetWidth, y0: y1 - panel.offsetHeight, y1};
-      out.sheet = panel.offsetWidth >= window.innerWidth - 2;
-    }
-    if (legend && !legend.hidden) { const r = legend.getBoundingClientRect(); out.legend = {x0: r.left, x1: r.right, y0: r.top, y1: r.bottom}; }
-    return out;
-  }
-
-  // A camera aimed so the subject at world point p lands on screen point (sx, sy):
-  // the target moves off p along the camera's own right and up vectors.
-  function aimedAt(p, view, sx, sy) {
-    const W = Math.max(1, canvas.clientWidth), H = Math.max(1, canvas.clientHeight);
-    const span = view.dist * FOV_HALF_TAN, nx = (2 * sx / W - 1) * span * (W / H), ny = (1 - 2 * sy / H) * span;
-    const cy = Math.cos(view.yaw), syw = Math.sin(view.yaw), sp = Math.sin(view.pitch), cp = Math.cos(view.pitch);
-    const right = [-syw, 0, cy], up = [-sp * cy, cp, -sp * syw];
-    return Object.assign({}, view, {tx: p.x - nx * right[0] - ny * up[0], ty: p.y - ny * up[1], tz: p.z - nx * right[2] - ny * up[2]});
-  }
-
-  // The clear band: between the top bar and the open sheet (or the whole view beside a desktop card).
-  function clearSpot() {
-    const r = hudRects(), W = canvas.clientWidth, H = canvas.clientHeight;
-    const bottom = r.panel && r.sheet ? r.panel.y0 : H;
-    return {x: W / 2, y: (r.barBottom + bottom) / 2, r};
+  // The clear band, in canvas pixels: below the top bar and above the open
+  // sheet (beside a desktop card the whole view is clear).
+  function clearBand() {
+    const p = hud.panelRect();
+    return hud.freeRect(canvas, {panel: !!(p && p.sheet), margin: 0});
   }
 
   function subjectPoint(e) {
@@ -82,8 +56,7 @@
   }
 
   function focusOn(e) {
-    const spot = clearSpot();
-    flyTo(aimedAt(subjectPoint(e), Object.assign({}, cam, {dist: 28}), spot.x, spot.y));
+    flyTo(AgentvizScreen.reveal(cam, subjectPoint(e), clearBand(), {set: {dist: 28}, force: true, dy: 0}));
   }
 
   // A tapped agent must stay in sight. On a phone the camera slides (same
@@ -92,10 +65,12 @@
   function keepInSight(e) {
     const p = subjectPoint(e), q = kit.project(p.x, p.y, p.z);
     if (!q) return;
-    const spot = clearSpot(), r = spot.r, pad = 40;
-    const under = (b) => b && q.x > b.x0 - pad && q.x < b.x1 + pad && q.y > b.y0 - pad;
-    if (!r.sheet && !under(r.panel) && q.y > r.barBottom + pad) return;
-    flyTo(aimedAt(p, Object.assign({}, cam), r.sheet ? spot.x : q.x, r.sheet ? spot.y : Math.min(q.y, (r.panel ? r.panel.y0 : canvas.clientHeight) - 2 * pad)));
+    const panel = hud.panelRect(), band = clearBand(), pad = 40;
+    if (panel && panel.sheet) { flyTo(AgentvizScreen.reveal(cam, p, band, {force: true, dy: 0})); return; }
+    const under = panel && q.x > panel.x0 - pad && q.x < panel.x1 + pad && q.y > panel.y0 - pad;
+    if (!under && q.y > band.y0 + pad) return;
+    flyTo(AgentvizScreen.aim(Object.assign({}, cam), p.x, p.y, p.z, q.x,
+      Math.min(q.y, (panel ? panel.y0 : band.H) - 2 * pad), band.W, band.H));
   }
 
   /* ------------------------------------------------------------ labels */
@@ -131,23 +106,6 @@
     return {el, q: kit.project(w.cur.x, w.cur.y + 2.3, w.cur.z), rank: crew ? 1 : f.stalled ? 2 : 4};
   }
 
-  // Labels never sit under the HUD. One whose anchor is under the top bar is
-  // dropped (a waiting one is pinned just below it instead, so it still
-  // shows); one under the open panel or the legend is dropped. Near the bar a
-  // label may not stack upwards (placeLabels' tries) far enough to reach it.
-  const LABEL_H = 22, TRIES = (rank) => (rank <= 0 ? 6 : rank === 1 ? 2 : 1);
-  function keepClear(items) {
-    const r = hudRects(), top = r.barBottom + LABEL_H;
-    const inside = (b, q) => b && q.x > b.x0 - 8 && q.x < b.x1 + 8 && q.y > b.y0 && q.y - 20 < b.y1;
-    for (const it of items) {
-      if (!it.q) continue;
-      if (inside(r.panel, it.q) || inside(r.legend, it.q)) it.q = null;
-      else if (it.q.y < top) it.q = it.rank <= 0 && it.q.y > 0 ? Object.assign({}, it.q, {y: top}) : null;
-      if (it.q) it.tries = Math.min(TRIES(it.rank), Math.max(1, 1 + Math.floor((it.q.y - top) / LABEL_H)));
-    }
-    return items;
-  }
-
   function placeLabels() {
     const items = [];
     labels.begin();
@@ -158,7 +116,10 @@
       if (item) items.push(item);
     }
     labels.end();
-    StrataKit.placeLabels(keepClear(items));
+    // Labels never sit under the HUD: one under the top bar is dropped (a
+    // waiting one is pinned just below it instead, so it still shows), and
+    // one under the open panel or the legend is dropped.
+    hud.placeLabels(items, {canvas});
   }
 
   /* ------------------------------------------------------------ picking + selection */
@@ -265,6 +226,7 @@
       buttons: [{icon: "home", label: "Show the whole yard", onClick: () => fit(false)}],
       rows: panelRows,
       onSelect,
+      oneRow: true,
     });
     // Under ?drive=1 tool-call pulses follow scene time, so captures repeat.
     const now = () => (kit.driven ? sceneTime : Date.now() / 1000);
